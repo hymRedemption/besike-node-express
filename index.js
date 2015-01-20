@@ -1,6 +1,7 @@
 module.exports = myexpress;
 
 var http = require("http");
+var Layer = require("./lib/layer");
 
 function myexpress(){
 
@@ -9,9 +10,9 @@ function myexpress(){
 
         function next(err) {
             i++;
-            var midware = app.stack[i];
+            var layer = app.stack[i];
 
-            if (midware == undefined) {
+            if (layer == undefined) {
                 if (parentNext !== undefined) {
                     parentNext(err);
                 } else {
@@ -19,16 +20,21 @@ function myexpress(){
                     res.end();
                 }
             } else {
+                var midware = layer.handle;
                 var varLength = midware.length;
 
-                if (midware.constructor == myexpress) { 
-                    midware(req, res, next);
-                } else {
-                    if (err) {
-                        (varLength == 4) ? midware(err, req, res, next) : next(err);
+                if (layer.match(req.url) !== undefined) {
+                    if (midware.constructor == myexpress) { 
+                        midware(req, res, next);
                     } else {
-                        (varLength == 4) ? next() : midware(req, res, next);
+                        if (err) {
+                            (varLength == 4) ? midware(err, req, res, next) : next(err);
+                        } else {
+                            (varLength == 4) ? next() : midware(req, res, next);
+                        }
                     }
+                } else {
+                    next(err);
                 }
             }
         }
@@ -47,8 +53,14 @@ function myexpress(){
 
     app.stack = [];
     app.constructor = myexpress;
-    app.use = function (middleware){
-        app.stack.push(middleware);
+    app.use = function (pathPrefix, middleware){
+        console.log(middleware);
+        if (middleware == undefined) {
+            console.log("change");
+            middleware = pathPrefix;
+            pathPrefix = "/";
+        }
+        app.stack.push(new Layer(pathPrefix, middleware));
     };
 
 

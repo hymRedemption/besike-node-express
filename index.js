@@ -4,7 +4,7 @@ var http = require("http");
 
 function myexpress(){
 
-    function app(req, res, parientNext){
+    function app(req, res, parentNext){
         var i = -1;
 
         function next(err) {
@@ -12,14 +12,14 @@ function myexpress(){
             var midware = app.stack[i];
 
             if (midware == undefined) {
-                if (parientNext !== undefined) {
-                    parientNext(err);
+                if (parentNext !== undefined) {
+                    parentNext(err);
                 } else {
                     res.statusCode = err ? 500 : 404;
                     res.end();
                 }
             } else {
-                var varLength = app.stack[i].length;
+                var varLength = midware.length;
 
                 if (midware.constructor == myexpress) { 
                     midware(req, res, next);
@@ -36,8 +36,8 @@ function myexpress(){
         try {
             next();
         } catch(ex) {
-            if (parientNext !== undefined){
-                parientNext(ex);
+            if (parentNext !== undefined){
+                parentNext(ex);
             } else {
                 res.statusCode = 500;
                 res.end();

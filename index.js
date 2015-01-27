@@ -5,27 +5,26 @@ var Layer = require("./lib/layer");
 
 function myexpress(){
 
-    function app(req, res, parentNext){
+    function app(req, res, parentNext, subAppMatchPath) {
         var i = -1;
 
         function next(err) {
             i++;
+            req.params = {};
             var layer = app.stack[i];
 
             if (layer == undefined) {
-                if (parentNext !== undefined) {
-                    parentNext(err);
-                } else {
-                    res.statusCode = err ? 500 : 404;
-                    res.end();
-                }
+                unexpectPro(req, res, parentNext, subAppMatchPath, err);
             } else {
                 var midware = layer.handle;
                 var varLength = midware.length;
+                var matchRes = layer.match(req.url);
 
-                if (layer.match(req.url) !== undefined) {
-                    if (midware.constructor == myexpress) { 
-                        midware(req, res, next);
+                if (matchRes !== undefined) {
+                    req.params = matchRes.params;
+                    if (typeof midware.handle == "function") { 
+                        req.url = trimPath(req.url, matchRes.path);
+                        midware(req, res, next, matchRes.path);
                     } else {
                         if (err) {
                             (varLength == 4) ? midware(err, req, res, next) : next(err);
@@ -42,34 +41,48 @@ function myexpress(){
         try {
             next();
         } catch(ex) {
-            if (parentNext !== undefined){
-                parentNext(ex);
-            } else {
-                res.statusCode = 500;
-                res.end();
-            }
+            unexpectPro(req, res, parentNext, subAppMatchPath, ex);
         }
     }
 
     app.stack = [];
-    app.constructor = myexpress;
+    app.handle = function(req, res, next){};
     app.use = function (pathPrefix, middleware){
-        console.log(middleware);
         if (middleware == undefined) {
-            console.log("change");
             middleware = pathPrefix;
             pathPrefix = "/";
         }
-        app.stack.push(new Layer(pathPrefix, middleware));
+        app.stack.push(new Layer(pathPrefix, middleware, {end: false}));
     };
 
 
     app.listen = function (port, callback) {
-        console.log("listen");
         var serv = http.createServer(app);
         return serv.listen(port, callback);
     };
 
+    app.get = function (path, handler) {
+        var layer = new Layer(path, handler, {end: true});
+    };
+
     return app;
+}
+
+function trimPath(origUrl, superUrl) {
+    var path =  origUrl.slice(superUrl.length);
+    if (path === "") {
+        path = "/";
+    }
+    return path;
+}
+
+function unexpectPro(requ, resp, parentNext, subAppMatchPath, err) {
+    if (parentNext !== undefined) {
+        requ.url = (requ.url === "/") ? subAppMatchPath : subAppMatchPath + requ.url;
+        parentNext(err);
+    } else {
+        resp.statusCode = err ? 500 : 404;
+        resp.end();
+    }
 }
 

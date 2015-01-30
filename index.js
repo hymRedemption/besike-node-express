@@ -49,6 +49,15 @@ function myexpress(){
 
     app.stack = [];
     app.handle = function(req, res, next){};
+
+    app.route = function (path) {
+        var newRoute = makeRoute();
+        var layer = new Layer(path, newRoute, {end: true});
+        app.stack.push(layer);
+
+        return newRoute;
+    };
+
     app.use = function (pathPrefix, middleware){
         if (middleware == undefined) {
             middleware = pathPrefix;
@@ -59,11 +68,19 @@ function myexpress(){
 
     methods.forEach(function(method){
         app[method] = function (path, handler) {
-            var varHandler = makeRoute(method.toUpperCase(), handler);
-            var layer = new Layer(path, varHandler, {end: true});
-            app.stack.push(layer);
+            var newRoute = app.route(path);
+            newRoute[method](handler);
+            
+            return app;
         }
     });
+
+    app.all = function (path, handler) {
+        var newRoute = app.route(path);
+        newRoute.all(handler);
+
+        return app;
+    };
 
     app.listen = function (port, callback) {
             var serv = http.createServer(app);

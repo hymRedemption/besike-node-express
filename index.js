@@ -2,6 +2,8 @@ module.exports = myexpress;
 
 var http = require("http");
 var Layer = require("./lib/layer");
+var makeRoute = require("./lib/route");
+var methods = require("methods");
 
 function myexpress(){
 
@@ -55,14 +57,17 @@ function myexpress(){
         app.stack.push(new Layer(pathPrefix, middleware, {end: false}));
     };
 
+    methods.forEach(function(method){
+        app[method] = function (path, handler) {
+            var varHandler = makeRoute(method.toUpperCase(), handler);
+            var layer = new Layer(path, varHandler, {end: true});
+            app.stack.push(layer);
+        }
+    });
 
     app.listen = function (port, callback) {
-        var serv = http.createServer(app);
-        return serv.listen(port, callback);
-    };
-
-    app.get = function (path, handler) {
-        var layer = new Layer(path, handler, {end: true});
+            var serv = http.createServer(app);
+            return serv.listen(port, callback);
     };
 
     return app;
@@ -85,4 +90,5 @@ function unexpectPro(requ, resp, parentNext, subAppMatchPath, err) {
         resp.end();
     }
 }
+
 

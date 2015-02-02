@@ -3,6 +3,7 @@ module.exports = myexpress;
 var http = require("http");
 var Layer = require("./lib/layer");
 var makeRoute = require("./lib/route");
+var injector = require("./lib/injector");
 var methods = require("methods");
 
 function myexpress(){
@@ -85,6 +86,16 @@ function myexpress(){
     app.listen = function (port, callback) {
             var serv = http.createServer(app);
             return serv.listen(port, callback);
+    };
+
+    app._factories = {};
+
+    app.factory = function (name, fn) {
+        app._factories[name] = fn;
+    };
+
+    app.inject = function (fn) {
+        return injector(fn, app);
     };
 
     return app;

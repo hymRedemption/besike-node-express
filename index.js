@@ -5,11 +5,27 @@ var Layer = require("./lib/layer");
 var makeRoute = require("./lib/route");
 var injector = require("./lib/injector");
 var methods = require("methods");
+var reqProto = require("./lib/request");
+var resProto = require("./lib/response");
 
 function myexpress(){
 
     function app(req, res, parentNext, subAppMatchPath) {
         var i = -1;
+        req.app = app;
+        req.res = res;
+        res.req = req;
+
+        res.redirect = function (statusCode, redirPath) {
+            if (!redirPath) {
+                redirPath = statusCode;
+                statusCode = 302;
+            }
+            res.statusCode = statusCode;
+            res.setHeader("Location", redirPath);
+            res.setHeader("Content-length", 0);
+            res.end();
+        };
 
         function next(err) {
             i++;
@@ -27,7 +43,11 @@ function myexpress(){
                     req.params = matchRes.params;
                     if (typeof midware.handle == "function") { 
                         req.url = trimPath(req.url, matchRes.path);
-                        midware(req, res, next, matchRes.path);
+                        var wrapParentNext = function (error) {
+                            req.app = app;
+                            next(error);
+                        };
+                        midware(req, res, wrapParentNext, matchRes.path);
                     } else {
                         if (err) {
                             (varLength == 4) ? midware(err, req, res, next) : next(err);
@@ -42,6 +62,7 @@ function myexpress(){
         }
 
         try {
+            app.monkey_patch(req, res);
             next();
         } catch(ex) {
             unexpectPro(req, res, parentNext, subAppMatchPath, ex);
@@ -64,6 +85,7 @@ function myexpress(){
             middleware = pathPrefix;
             pathPrefix = "/";
         }
+        console.log(pathPrefix);
         app.stack.push(new Layer(pathPrefix, middleware, {end: false}));
     };
 
@@ -98,10 +120,15 @@ function myexpress(){
         return injector(fn, app);
     };
 
+    app.monkey_patch = function (req, res) {
+        req.__proto__ = reqProto;
+        res.__proto__ = resProto;
+    }
+
     return app;
 }
 
-function trimPath(origUrl, superUrl) {
+function trimPath (origUrl, superUrl) {
     var path =  origUrl.slice(superUrl.length);
     if (path === "") {
         path = "/";
